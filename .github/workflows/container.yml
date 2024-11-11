@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  id-token: write
+
 jobs:
 
   build:
@@ -15,6 +18,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Login to Azure
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     - name: Build and Push Image
       run: |
         az acr login --name microhackdayjansim --username ${{ secrets.ACR_USERNAME }} --password ${{ secrets.ACR_PASSWORD }} &&
@@ -30,3 +39,13 @@ jobs:
         echo "image_tag=$UPDATED_TAG" >> $GITHUB_OUTPUT
     - name: Print the Tag
       run: echo $image_tag
+    - name: Deploy to Container App
+      uses: azure/container-apps-deploy-action@v2
+      with:
+        imageToDeploy: microhackdayjansim.azurecr.io/microhackapp:${{ steps.get_tag.outputs.image_tag }}
+        acrUsername: ${{ secrets.ACR_USERNAME }}
+        acrPassword: ${{ secrets.ACR_PASSWORD }}
+        resourceGroup: MicroHack-AppServiceToContainerApp
+        containerAppEnvironment: microhack-containerappenvironment
+        containerAppName: microhack-containerapp
+        targetPort: 8080
